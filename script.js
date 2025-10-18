@@ -64,64 +64,64 @@ function updateHighScore() {
 
 k.scene("menu", () => {
     const isMobile = window.innerWidth <= 768;
+    const centerX = k.width() / 2;
+    const centerY = k.height() / 2;
     
-    const capybara = k.add([
-        k.sprite("CapyBaraM"),
-        k.scale(0.8),
-        k.pos(-50, k.height() / 2 + 170),
-        k.anchor("center"),
-        k.rotate(8)
-    ]);
-
     k.add([
-        k.sprite("Lime"),
-        k.pos(capybara.pos.x + 450, capybara.pos.y - 350),
+        k.sprite("hoppibara2"),
+        k.pos(centerX, centerY - 200),
         k.anchor("center"),
+        k.scale(isMobile ? 0.8 : 1),
     ]);
 
-    const logoSprite = isMobile ? "hoppibara" : "hoppibara2";
-    const logoX = isMobile ? k.width() - 300 : k.width() - 650;
-    const logoY = isMobile ? k.height() / 2 - 200 : k.height() / 2 - 330;
-
-    k.add([
-        k.sprite(logoSprite),
-        k.pos(logoX, logoY),
-        k.anchor("center"),
-    ]);
-
-    const playBtnX = isMobile ? k.width() - 300 : k.width() - 620;
-    const playBtnSize = isMobile ? 65 : 80;
-
+    const playBtnSize = isMobile ? 80 : 100;
+    
     const playBtn = k.add([
         k.rect(playBtnSize, playBtnSize),
-        k.pos(playBtnX, k.height() / 2 + 50),
+        k.pos(centerX, centerY + 100),
         k.anchor("center"),
         k.color(179, 120, 33),
-        k.outline(6),
+        k.outline(8),
         k.z(10),
         k.area(),
     ]);
 
     k.add([
         k.sprite("playIcon"),
-        k.pos(playBtnX, k.height() / 2 + 50),
+        k.pos(centerX, centerY + 100),
         k.anchor("center"),
+        k.scale(1.2),
         k.z(11),
     ]);
 
     k.add([
         k.text(`High Score: ${gameState.highScore}`, { font: "baifont" }),
-        k.pos(playBtnX, k.height() / 2 + 250),
-        k.scale(1.3),
+        k.pos(centerX, centerY + 220),
+        k.scale(isMobile ? 1.2 : 1.5),
         k.anchor("center"),
+        k.color(0, 0, 0),
         k.z(11),
+    ]);
+
+    k.add([
+        k.text("Press SPACE or Click to Start", { font: "baifont" }),
+        k.pos(centerX, k.height() - 60),
+        k.scale(0.8),
+        k.anchor("center"),
+        k.color(100, 100, 100),
+        k.opacity(0.7),
     ]);
 
     playBtn.onClick(() => k.go("gameplay"));
     k.onKeyPress("space", () => k.go("gameplay"));
     k.onKeyPress("enter", () => k.go("gameplay"));
 
+    let pulseTimer = 0;
     k.onUpdate(() => {
+        pulseTimer += k.dt();
+        const scale = 1 + Math.sin(pulseTimer * 3) * 0.05;
+        playBtn.scale = k.vec2(scale, scale);
+
         const gamepad = navigator.getGamepads ? navigator.getGamepads()[0] : null;
         if (gamepad && gamepad.buttons[0]?.pressed) {
             k.go("gameplay");
