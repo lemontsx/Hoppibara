@@ -1,674 +1,482 @@
-document.addEventListener("DOMContentLoaded", () => {
+import React, { useEffect, useRef, useState } from 'react';
 
-    if (!localStorage.getItem("highScore")) {
-        localStorage.setItem("highScore", 0);
-    }
+const HopibaraGame = () => {
+  const canvasRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-    console.log("%c Welcome to Hopibara", "font-size: 55px; color: green; font-weight: bold;");
-    console.log("%c This is a game made in kaboom.js, this game is a revival of a youtuber's game. I just wanted to make it a real working webgame.", "font-size: 22px;");
-    console.log("%c Credits:", "font-size: 55px;");
-    console.log("%c Goodgis:", "font-size: 35px; font-weight: bold;");
-    console.log("%c This is the original creator of Hoppibara, any code I could find was used so I could make this as similar to the original as I could. HUGE thanks to him for any code, and his idea of this game.", "font-size: 15px;");
-    console.log("%c SOUNDGOD:", "font-size: 35px; font-weight: bold;");
-    console.log("%c Oh, that's me :), I am the developer of this remake.", "font-size: 15px;");
-    console.log("%c Pig55:", "font-size: 35px; font-weight: bold;");
-    console.log("%c A very good friend of mine, and decided to help make the newer art assets for this remake, HUGE thanks to him.", "font-size: 15px;");
-    const appCanvas = document.getElementById("app");
-    kaboom({
-        canvas:appCanvas,
-        background: [251, 210, 149],
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const CONFIG = {
+      GRAVITY: 3000,
+      JUMP_STRENGTH: 1500,
+      PLAYER_SPEED: 800,
+      HAZARD_SPEED: 650,
+      SCROLL_SPEED: 600,
+      FLOOR_HEIGHT: 250,
+      SCORE_INTERVAL: 300,
+      SPAWN_MIN: 1,
+      SPAWN_MAX: 3,
+      ANIMATION_INTERVAL: 120,
+      BG_COLOR: [251, 210, 149]
+    };
+
+    const gameState = {
+      score: 0,
+      highScore: parseInt(sessionStorage.getItem('highScore') || '0'),
+      isPaused: false,
+      isGameOver: false,
+      currentScene: 'menu',
+      playerSprite: 0,
+      isJumping: false,
+      isWalking: false,
+      rotation: 0
+    };
+
+    let kaboomInstance;
+
+    const initGame = async () => {
+      const k = window.kaboom({
+        canvas,
+        background: CONFIG.BG_COLOR,
         width: window.innerWidth,
         height: window.innerHeight,
-    });
+      });
 
-    loadSprite("capybara", "./assets/images/capybara.png");
-    loadSprite("capybara2", "./assets/images/capybara2.png");
-    loadSprite("hazard1", "./assets/images/hazards/hazard1.png");
-    loadSprite("hazard2", "./assets/images/hazards/hazard2.png");
-    loadSprite("hazard3", "./assets/images/hazards/hazard3.png");
-    loadSprite("hazard4", "./assets/images/hazards/hazard4.png")
-    loadSound("jump", "./assets/audio/jump.mp3");
-    loadSound("gameOver", "./assets/audio/loss.mp3");
-    loadSound("background", "./assets/audio/background.mp3");
-    loadFont("baifont", "./assets/fonts/bai.ttf");
-    loadSprite("tileSprite", "./assets/images/tile.png");
-    loadSprite("leftIcon", "./assets/images/icons/left.png")
-    loadSprite("rightIcon", "./assets/images/icons/right.png")
-    loadSprite("actionIcon", "./assets/images/icons/jump.png")
-    loadSprite("Lime", "./assets/images/menu/Lime.png")
-    loadSprite("CapyBaraM", "./assets/images/menu/capybara.png")
-    loadSprite("hoppibara", "./assets/images/menu/hoppibara.png")
-    loadSprite("hoppibara2", "./assets/images/menu/hoppibara1.png")
-    loadSprite("playIcon", "./assets/images/menu/playIcon.png")
-    onLoad(() => {
-        destroy(loadingText);
-        go("gameplay");
-    });
+      kaboomInstance = k;
 
-    let isGamePaused = false;
-    let gamepad = null;
-    let inputCooldown = 0.1;
-    let lastInputTime = 0;
+      k.loadSprite("capybara", "./assets/images/capybara.png");
+      k.loadSprite("capybara2", "./assets/images/capybara2.png");
+      k.loadSprite("hazard1", "./assets/images/hazards/hazard1.png");
+      k.loadSprite("hazard2", "./assets/images/hazards/hazard2.png");
+      k.loadSprite("hazard3", "./assets/images/hazards/hazard3.png");
+      k.loadSprite("hazard4", "./assets/images/hazards/hazard4.png");
+      k.loadSound("jump", "./assets/audio/jump.mp3");
+      k.loadSound("gameOver", "./assets/audio/loss.mp3");
+      k.loadSound("background", "./assets/audio/background.mp3");
+      k.loadFont("baifont", "./assets/fonts/bai.ttf");
+      k.loadSprite("tileSprite", "./assets/images/tile.png");
+      k.loadSprite("leftIcon", "./assets/images/icons/left.png");
+      k.loadSprite("rightIcon", "./assets/images/icons/right.png");
+      k.loadSprite("actionIcon", "./assets/images/icons/jump.png");
+      k.loadSprite("Lime", "./assets/images/menu/Lime.png");
+      k.loadSprite("CapyBaraM", "./assets/images/menu/capybara.png");
+      k.loadSprite("hoppibara", "./assets/images/menu/hoppibara.png");
+      k.loadSprite("hoppibara2", "./assets/images/menu/hoppibara1.png");
+      k.loadSprite("playIcon", "./assets/images/menu/playIcon.png");
+      k.loadSprite("retryIcon", "./assets/images/icons/retry.png");
 
-    scene("changeDeviceOri", () => {
-        add([
-            text(`Please use a computer or tablet`, { font: "baifont" }),
-            scale(0.3),
-            pos(width() / 2, height() / 2),
-            anchor("center"),
-            color(0, 0, 0),
-        ])
-    })
+      k.onLoad(() => {
+        setIsLoading(false);
+        setupScenes(k);
+        k.go('menu');
+      });
+    };
 
-    scene("gameover", (score) => {
-        add([
-            text(`Game Over`, { font: "baifont" }),
-            scale(2.8),
-            pos(width() / 2, height() / 2 - 250),
-            anchor("center"),
-            color(255, 255, 255),
+    const setupScenes = (k) => {
+      setupMenuScene(k);
+      setupGameplayScene(k);
+      setupGameOverScene(k);
+    };
+
+    const setupMenuScene = (k) => {
+      k.scene("menu", () => {
+        const isMobile = window.innerWidth <= 768;
+        
+        const capybara = k.add([
+          k.sprite("CapyBaraM"),
+          k.scale(0.8),
+          k.pos(-50, k.height() / 2 + 170),
+          k.anchor("center"),
+          k.rotate(8)
         ]);
 
-        const rectWidth = 400;
-        const rectHeight = 200;
-        const outlineThickness = 10;
-        const outlineWidth = rectWidth + outlineThickness * 2;
-        const outlineHeight = rectHeight + outlineThickness * 2;
-        const outlineColor = rgb(107, 64, 1);
-
-        add([
-            rect(outlineWidth, outlineHeight),
-            pos(width() / 2, height() / 2),
-            anchor("center"),
-            color(outlineColor),
+        k.add([
+          k.sprite("Lime"),
+          k.pos(capybara.pos.x + 450, capybara.pos.y - 350),
+          k.anchor("center"),
         ]);
 
-        add([
-            rect(rectWidth, rectHeight),
-            pos(width() / 2, height() / 2),
-            anchor("center"),
-            color(179, 120, 33),
+        const logoSprite = isMobile ? "hoppibara" : "hoppibara2";
+        const logoX = isMobile ? k.width() - 300 : k.width() - 650;
+        const logoY = isMobile ? k.height() / 2 - 200 : k.height() / 2 - 330;
+
+        k.add([
+          k.sprite(logoSprite),
+          k.pos(logoX, logoY),
+          k.anchor("center"),
         ]);
 
-        add([
-            text(`Your Score: ${score}`, { font: "baifont" }),
-            scale(1.2),
-            pos(width() / 2, height() / 2 - 20),
-            anchor("center"),
-            color(255, 255, 255),
+        const playBtnX = isMobile ? k.width() - 300 : k.width() - 620;
+        const playBtnSize = isMobile ? 65 : 80;
+
+        const playBtn = k.add([
+          k.rect(playBtnSize, playBtnSize),
+          k.pos(playBtnX, k.height() / 2 + 50),
+          k.anchor("center"),
+          k.color(179, 120, 33),
+          k.outline(6),
+          k.z(10),
+          k.area(),
+          "playBtn",
         ]);
 
-        loadSprite("retryIcon", "./assets/images/icons/retry.png");
-        console.log("Loading retry icon sprite...");
-
-        add([
-            sprite("retryIcon"),
-            pos(width() / 2, height() / 2 + 180),
-            anchor("center"),
-            z(20),
+        k.add([
+          k.sprite("playIcon"),
+          k.pos(playBtnX, k.height() / 2 + 50),
+          k.anchor("center"),
+          k.z(11),
         ]);
 
-        const retryBtn = add([
-            rect(80, 80),
-            outline(7),
-            pos(width() / 2, height() / 2 + 180),
-            anchor("center"),
-            color(179, 120, 33),
-            z(10),
-            area(),
-            "retryBtn",
+        k.add([
+          k.text(`High Score: ${gameState.highScore}`, { font: "baifont" }),
+          k.pos(playBtnX, k.height() / 2 + 250),
+          k.scale(1.3),
+          k.anchor("center"),
+          k.z(11),
         ]);
 
-        add([
-            text(`Best Score: ${localStorage.getItem('highScore')}`, { font: "baifont" }),
-            scale(1.2),
-            pos(width() / 2, height() / 2 + 40),
-            anchor("center"),
-            color(255, 255, 255),
+        playBtn.onClick(() => k.go("gameplay"));
+        k.onKeyPress("space", () => k.go("gameplay"));
+        k.onKeyPress("enter", () => k.go("gameplay"));
+      });
+    };
+
+    const setupGameplayScene = (k) => {
+      k.scene("gameplay", () => {
+        k.setGravity(CONFIG.GRAVITY);
+        gameState.isGameOver = false;
+        gameState.score = 0;
+        gameState.playerSprite = 0;
+
+        let player = k.add([
+          k.sprite("capybara"),
+          k.pos(100, 100),
+          k.anchor("center"),
+          k.area(),
+          k.body(),
         ]);
 
-        retryBtn.onClick(() => {
-            go("gameplay", true);
-        });
-        onUpdate(() => {
-            if (gamepad) {
-                if (gamepad.isPressed("south")) {
-                    go("gameplay", true);
-                }
-            }
-        })
-    });
-    const touchEndActions = []
-    appCanvas.addEventListener('touchend',(e)=>{
-        [...e.changedTouches].forEach((t)=>{
-            touchEndActions.forEach((action)=>{
-                action(t.indentifier,vec2(t.clientX,t.clientY).scale(1 / appCanvas.scale))
-            })
-        })
-    })
-    function onTouchEnd(action){
-      touchEndActions.push(action)
-        return ()=>{
-            const idx = touchEndActions.findIndex(a => a === action)
-            if(idx >= 0){
-                touchEndActions.splice(idx,1)
-            }
-        }
-    }
-    scene("gameplay", (isPlaying) => {
-        setGravity(3000);
+        const floorSegments = createFloor(k);
+        const scoreCard = createScoreCard(k);
+        const controls = createControls(k, player);
 
-        const floorHeight = 250;
-        const jump_strength = 1500;
-        const SPEED = 800;
-        const SPD = 650;
-        const scrollSpeed = 600;
-        const tileWidth = 113;
-        const tileHeight = 110;
-        const floorSegments = [];
-        const tiles = [];
-
-        let gameOver = false;
-        let currentSprite = "capybara";
-        let player;
-        let leftButton;
-        let rightButton;
-        let jumpButton;
-        function addPlayer() {
-            player = add([
-                sprite("capybara"),
-                pos(100, 100),
-                anchor("center"),
-                area(),
-                body(),
-            ]);
-        }
-        addPlayer()
-        const addLeftButton = () => {
-            leftButton = add([
-                sprite("leftIcon"),
-                pos(0 + 80, height() - 120),
-                anchor("center"),
-                area(),
-                z(99),
-                opacity(0.5),
-                "leftBtn",
-            ]);
-        }
-        const addRightButton = () => {
-            rightButton = add([
-                sprite("leftIcon"),
-                pos(0 + 250, height() - 120),
-                anchor("center"),
-                area(),
-                z(100),
-                opacity(0.5),
-                "rightBtn",
-            ]);
-            rightButton.angle = -180;
-        }
-        const addJumpButton = () => {
-            jumpButton = add([
-                sprite("actionIcon"),
-                pos(width() - 180, height() - 120),
-                anchor("center"),
-                area(),
-                z(100),
-                opacity(0.5),
-                "actionBtn",
-            ]);
-        }
-        if (WURFL.is_mobile && !gamepad) {
-            addLeftButton();
-            addRightButton();
-            addJumpButton();
-
-            onClick(pos => {
-                console.log("Mouse Click:", pos);
-                handleInput(pos);
-            });
-
-            onMouseRelease(pos => {
-                console.log("Mouse Release:", pos);
-                resetButtonOpacity(pos);
-            });
-
-            function handleInput(pos) {
-                console.log(`Mouse pos: ${pos}, Left Button pos: ${leftButton.pos}, Right Button pos: ${rightButton.pos}, Jump Button pos: ${jumpButton.pos}`);
-
-                if (leftButton.hasPoint(pos)) {
-                    console.log("Left Button Pressed");
-                    leftButton.opacity = 1;
-                } else if (rightButton.hasPoint(pos)) {
-                    console.log("Right Button Pressed");
-                    rightButton.opacity = 1;
-                } else if (jumpButton.hasPoint(pos)) {
-                    console.log("Jump Button Pressed");
-                    jump();
-                    jumpButton.opacity = 1;
-                }
-            }
-
-            function resetButtonOpacity(pos) {
-                if (leftButton.hasPoint(pos)) {
-                    leftButton.opacity = 0.5;
-                } else if (rightButton.hasPoint(pos)) {
-                    rightButton.opacity = 0.5;
-                } else if (jumpButton.hasPoint(pos)) {
-                    jumpButton.opacity = 0.5;
-                }
-            }
-        }
-
-        function createFloorSegment(xPos) {
-            const floor = add([
-                rect(width(), floorHeight),
-                pos(xPos, height() - floorHeight),
-                color(255, 255, 255),
-                area(),
-                body({ isStatic: true }),
-                z(98),
-                { solid: true },
-            ]);
-
-            add([
-                rect(width(), 6),
-                pos(xPos, height() - floorHeight - 6),
-                color(0, 0, 0),
-            ]);
-
-            return floor;
-        }
-
-        function updateFloorSegments() {
-            floorSegments.forEach((floor, index) => {
-                floor.pos.x -= scrollSpeed * dt();
-                if (floor.pos.x < -floor.width) {
-                    const lastFloor = floorSegments[(index + floorSegments.length - 1) % floorSegments.length];
-                    floor.pos.x = lastFloor.pos.x + lastFloor.width;
-                    tiles.forEach(tile => {
-                        if (tile.pos.x < -tileWidth) {
-                            tile.pos.x = lastFloor.pos.x + (width() - tileWidth);
-                        }
-                    });
-                }
-            });
-        }
-
-        floorSegments.push(createFloorSegment(0));
-        floorSegments.push(createFloorSegment(width()));
-
-        onUpdate(() => {
-            updateFloorSegments();
+        let scoreTimer = k.loop(CONFIG.SCORE_INTERVAL / 1000, () => {
+          if (!gameState.isGameOver && !gameState.isPaused) {
+            gameState.score++;
+            scoreCard.text = gameState.score;
+            updateHighScore();
+          }
         });
 
-        if (!isPlaying) {
-            play("background", { volume: 0.05, loop: true });
-        }
-
-        let isRotating = false;
-        let rotation = 0;
-        let walking2;
-
-        function jump() {
-            if (player.isGrounded()) {
-                play("jump", { volume: 0.6 });
-                player.jump(jump_strength);
-                isRotating = true;
-                rotation = 0;
-                if (!walking2) {
-                    walking2 = setInterval(() => {
-                        if (currentSprite === "capybara") {
-                            player.use(sprite("capybara2"));
-                            currentSprite = "capybara2";
-                        } else {
-                            player.use(sprite("capybara"));
-                            currentSprite = "capybara";
-                        }
-                    }, 120);
-                }
-            }
-        }
-
-        onUpdate(() => {
-            if (isRotating) {
-                player.angle += 10;
-                rotation += 10;
-                if (rotation >= 360) {
-                    player.angle = 0;
-                    isRotating = false;
-                }
-            }
-            if (player.isGrounded() && walking2) {
-                clearInterval(walking2);
-                walking2 = null;
-            }
+        k.onUpdate(() => {
+          updateFloor(k, floorSegments);
+          handlePlayerAnimation(k, player);
+          handleControllerInput(k, player);
         });
 
-        onKeyDown("up", () => {
-            jump();
-        });
+        setupPlayerControls(k, player);
+        spawnHazards(k, player);
 
-        onKeyDown("space", () => {
-            jump();
-        });
+        k.play("background", { volume: 0.05, loop: true });
+      });
+    };
 
-        let walking;
-
-        onKeyDown("left", () => {
-            if (player.pos.x > 0) {
-                player.move(-SPEED, 0);
-                if (!walking) {
-                    walking = setInterval(() => {
-                        if (currentSprite === "capybara") {
-                            player.use(sprite("capybara2"));
-                            currentSprite = "capybara2";
-                        } else {
-                            player.use(sprite("capybara"));
-                            currentSprite = "capybara";
-                        }
-                    }, 120);
-                }
-            }
-        });
-
-        onKeyDown("right", () => {
-            if (player.pos.x < width()) {
-                player.move(SPEED, 0);
-                if (!walking) {
-                    walking = setInterval(() => {
-                        if (currentSprite === "capybara") {
-                            player.use(sprite("capybara2"));
-                            currentSprite = "capybara2";
-                        } else {
-                            player.use(sprite("capybara"));
-                            currentSprite = "capybara";
-                        }
-                    }, 120);
-                }
-            }
-        });
-
-        onKeyRelease("right", () => {
-            clearInterval(walking);
-            walking = null;
-            player.use(sprite("capybara"));
-        });
-
-        onKeyRelease("left", () => {
-            clearInterval(walking);
-            walking = null;
-            player.use(sprite("capybara"));
-        });
-
-        let score = 0;
-
-        const scoreCard = add([
-            text(score, { font: "baifont" }),
-            scale(1.8),
-            pos(width() / 2, 80),
-            anchor("center"),
-            color(0, 0, 0),
+    const setupGameOverScene = (k) => {
+      k.scene("gameover", () => {
+        k.add([
+          k.text("Game Over", { font: "baifont" }),
+          k.scale(2.8),
+          k.pos(k.width() / 2, k.height() / 2 - 250),
+          k.anchor("center"),
+          k.color(255, 255, 255),
         ]);
 
-        setInterval(() => {
-            if (!gameOver && !isGamePaused) {
-                score++;
-                scoreCard.text = score;
-                if (!localStorage.getItem("highScore")) {
-                    localStorage.setItem("highScore", 0);
-                } else {
-                    if (localStorage.getItem("highScore") < score) {
-                        localStorage.setItem("highScore", score);
-                    }
-                }
-            }
-        }, 300);
+        createScorePanel(k);
 
-        const hazards = [];
-
-        function spawnHazard() {
-            const hazard = add([
-                sprite("hazard" + (Math.floor(Math.random() * 4) + 1)),
-                area(),
-                pos(width(), height() - floorHeight),
-                move(LEFT, SPD),
-                anchor("botleft"),
-                "hazard"
-            ]);
-            hazards.push(hazard);
-            wait(rand(1, 3), spawnHazard);
-        }
-
-        player.onCollide("hazard", () => {
-            gameOver = true;
-            play("gameOver", { volume: 0.3 });
-            go("gameover", score);
-        });
-
-        spawnHazard();
-
-        let pauseOverlay, pauseText, resumeText, pauseOutline;
-
-        onKeyPress("p", () => {
-            if (!isGamePaused) {
-                isGamePaused = true;
-                const rectWidth = 400;
-                const rectHeight = 200;
-                const outlineThickness = 10;
-                const outlineWidth = rectWidth + outlineThickness * 2;
-                const outlineHeight = rectHeight + outlineThickness * 2;
-                const outlineColor = rgb(107, 64, 1);
-
-                pauseOutline = add([
-                    rect(outlineWidth, outlineHeight),
-                    pos(width() / 2, height() / 2),
-                    anchor("center"),
-                    color(outlineColor),
-                ]);
-
-                pauseOverlay = add([
-                    rect(rectWidth, rectHeight),
-                    pos(width() / 2, height() / 2),
-                    anchor("center"),
-                    color(179, 120, 33),
-                ]);
-
-                pauseText = add([
-                    text("Paused", { font: "baifont" }),
-                    scale(2.8),
-                    pos(width() / 2, height() / 2 - 250),
-                    anchor("center"),
-                    color(255, 255, 255),
-                    z(11),
-                ]);
-
-                resumeText = add([
-                    text("Press P to Resume", { font: "baifont" }),
-                    scale(1.2),
-                    pos(width() / 2, height() / 2),
-                    anchor("center"),
-                    color(255, 255, 255),
-                    z(11),
-                ]);
-
-                get().forEach((comp) => {
-                    if (comp.update) {
-                        comp._update = comp.update;
-                        comp.update = () => { };
-                    }
-                });
-
-            } else {
-                isGamePaused = false;
-                destroy(pauseOverlay);
-                destroy(pauseOutline);
-                destroy(pauseText);
-                destroy(resumeText);
-
-                get().forEach((comp) => {
-                    if (comp._update) {
-                        comp.update = comp._update;
-                        delete comp._update;
-                    }
-                });
-            }
-        });
-        onGamepadConnect((gamepad2) => {
-            gamepad = gamepad2
-        })
-        onUpdate(() => {
-            if (gamepad) {
-                const leftStick = gamepad.getStick("left");
-
-                if (gamepad.isPressed("south")) {
-                    jump();
-                }
-
-                if (leftStick.x !== 0) {
-                    const newX = player.pos.x + leftStick.x * SPEED * dt();
-
-                    if (newX >= 0 && newX <= width()) {
-                        player.move(leftStick.x * SPEED, 0);
-
-                        if (!walking) {
-                            walking = setInterval(() => {
-                                if (currentSprite === "capybara") {
-                                    player.use(sprite("capybara2"));
-                                    currentSprite = "capybara2";
-                                } else {
-                                    player.use(sprite("capybara"));
-                                    currentSprite = "capybara";
-                                }
-                            }, 120);
-                        }
-                    }
-                } else {
-                    clearInterval(walking);
-                    walking = null;
-                }
-            }
-        });
-
-        onGamepadDisconnect((gamepad2) => {
-            gamepad = null
-        })
-    });
-    scene("menu", () => {
-        const capybara = add([
-            sprite("CapyBaraM"),
-            scale(0.8),
-            pos(0 - 50, height() / 2 + 170),
-            anchor("center"),
+        const retryBtn = k.add([
+          k.rect(80, 80),
+          k.outline(7),
+          k.pos(k.width() / 2, k.height() / 2 + 180),
+          k.anchor("center"),
+          k.color(179, 120, 33),
+          k.z(10),
+          k.area(),
         ]);
-        capybara.angle = 8;
 
-        add([
-            sprite("Lime"),
-            pos(capybara.pos.x + 450, capybara.pos.y - 350),
-            anchor("center"),
-        ])
-        if (WURFL.is_mobile) {
-            add([
-                sprite("hoppibara"),
-                pos(width() - 300, height() / 2 - 200),
-                anchor("center"),
-            ])
-        } else {
-            add([
-                sprite("hoppibara2"),
-                pos(width() - 650, height() / 2 - 330),
-                anchor("center"),
-            ])
+        k.add([
+          k.sprite("retryIcon"),
+          k.pos(k.width() / 2, k.height() / 2 + 180),
+          k.anchor("center"),
+          k.z(20),
+        ]);
+
+        retryBtn.onClick(() => k.go("gameplay"));
+        k.onKeyPress("space", () => k.go("gameplay"));
+        k.onKeyPress("enter", () => k.go("gameplay"));
+      });
+    };
+
+    const createFloor = (k) => {
+      const segments = [];
+      
+      const createSegment = (xPos) => {
+        const floor = k.add([
+          k.rect(k.width(), CONFIG.FLOOR_HEIGHT),
+          k.pos(xPos, k.height() - CONFIG.FLOOR_HEIGHT),
+          k.color(255, 255, 255),
+          k.area(),
+          k.body({ isStatic: true }),
+          k.z(98),
+        ]);
+
+        k.add([
+          k.rect(k.width(), 6),
+          k.pos(xPos, k.height() - CONFIG.FLOOR_HEIGHT - 6),
+          k.color(0, 0, 0),
+        ]);
+
+        return floor;
+      };
+
+      segments.push(createSegment(0));
+      segments.push(createSegment(k.width()));
+      
+      return segments;
+    };
+
+    const updateFloor = (k, segments) => {
+      segments.forEach((floor, index) => {
+        floor.pos.x -= CONFIG.SCROLL_SPEED * k.dt();
+        if (floor.pos.x < -floor.width) {
+          const lastIndex = (index + segments.length - 1) % segments.length;
+          floor.pos.x = segments[lastIndex].pos.x + segments[lastIndex].width;
         }
-        if (WURFL.is_mobile) {
-            const playBtn = add([
-                rect(65, 65),
-                pos(width() - 300, height() / 2 + 50),
-                anchor("center"),
-                color(179, 120, 33),
-                outline(6),
-                z(10),
-                area(),
-                "playBtn",
-            ])
-            add([
-                sprite("playIcon"),
-                pos(width() - 300, height() / 2 + 50),
-                anchor("center"),
-                z(11),
-                area(),
-            ])
-            const score = localStorage.getItem("highScore")
-            add([
-                text(`High Score: ${score}`,{font:"baifont"}),
-                pos(width() - 300, height() / 2 + 250),
-                scale(1.3),
-                anchor("center"),
-                z(11),
-                area(),
-            ])
-            playBtn.onClick(() => {
-                go("gameplay", false);
-            })
-            onUpdate(() => {
-                if (gamepad) {
-                    if (gamepad.isPressed("south")) {
-                        go("gameplay", false);
-                    }
-                }
-            });
-            onGamepadDisconnect((gamepad2) => {
-                gamepad = null
-            })
-        } else {
-            const playBtn = add([
-                rect(80, 80),
-                pos(width() - 620, height() / 2 + 50),
-                anchor("center"),
-                color(179, 120, 33),
-                outline(6),
-                z(10),
-                area(),
-                "playBtn",
-            ])
-            add([
-                sprite("playIcon"),
-                pos(width() - 620, height() / 2 + 50),
-                anchor("center"),
-                z(11),
-                area(),
-            ])
-            const score = localStorage.getItem("highScore")
-            add([
-                text(`High Score: ${score}`,{font:"baifont"}),
-                pos(width() - 620, height() / 2 + 250),
-                scale(1.3),
-                anchor("center"),
-                z(11),
-                area(),
-            ])
-            playBtn.onClick(() => {
-                go("gameplay", false);
-            })
-            onGamepadConnect((gamepad2) => {
-                gamepad = gamepad2
-            })
-            onGamepadDisconnect((gamepad2) => {
-                gamepad = null
-            })
-            onUpdate(() => {
-                if (gamepad) {
-                    if (gamepad.isPressed("south")) {
-                        go("gameplay", false);
-                    }
-                }
-            });
+      });
+    };
+
+    const createScoreCard = (k) => {
+      return k.add([
+        k.text(gameState.score, { font: "baifont" }),
+        k.scale(1.8),
+        k.pos(k.width() / 2, 80),
+        k.anchor("center"),
+        k.color(0, 0, 0),
+      ]);
+    };
+
+    const createScorePanel = (k) => {
+      const rectWidth = 400;
+      const rectHeight = 200;
+      const outlineThickness = 10;
+
+      k.add([
+        k.rect(rectWidth + outlineThickness * 2, rectHeight + outlineThickness * 2),
+        k.pos(k.width() / 2, k.height() / 2),
+        k.anchor("center"),
+        k.color(107, 64, 1),
+      ]);
+
+      k.add([
+        k.rect(rectWidth, rectHeight),
+        k.pos(k.width() / 2, k.height() / 2),
+        k.anchor("center"),
+        k.color(179, 120, 33),
+      ]);
+
+      k.add([
+        k.text(`Your Score: ${gameState.score}`, { font: "baifont" }),
+        k.scale(1.2),
+        k.pos(k.width() / 2, k.height() / 2 - 20),
+        k.anchor("center"),
+        k.color(255, 255, 255),
+      ]);
+
+      k.add([
+        k.text(`Best Score: ${gameState.highScore}`, { font: "baifont" }),
+        k.scale(1.2),
+        k.pos(k.width() / 2, k.height() / 2 + 40),
+        k.anchor("center"),
+        k.color(255, 255, 255),
+      ]);
+    };
+
+    const createControls = (k, player) => {
+      const isMobile = window.innerWidth <= 768;
+      if (!isMobile) return null;
+
+      const leftBtn = k.add([
+        k.sprite("leftIcon"),
+        k.pos(80, k.height() - 120),
+        k.anchor("center"),
+        k.area(),
+        k.z(99),
+        k.opacity(0.5),
+      ]);
+
+      const rightBtn = k.add([
+        k.sprite("leftIcon"),
+        k.pos(250, k.height() - 120),
+        k.anchor("center"),
+        k.area(),
+        k.z(100),
+        k.opacity(0.5),
+        k.rotate(-180),
+      ]);
+
+      const jumpBtn = k.add([
+        k.sprite("actionIcon"),
+        k.pos(k.width() - 180, k.height() - 120),
+        k.anchor("center"),
+        k.area(),
+        k.z(100),
+        k.opacity(0.5),
+      ]);
+
+      return { leftBtn, rightBtn, jumpBtn };
+    };
+
+    const setupPlayerControls = (k, player) => {
+      const performJump = () => {
+        if (player.isGrounded() && !gameState.isGameOver) {
+          k.play("jump", { volume: 0.6 });
+          player.jump(CONFIG.JUMP_STRENGTH);
+          gameState.isJumping = true;
+          gameState.rotation = 0;
         }
-    })
-    if (WURFL.is_mobile && window.innerWidth <= 550) {
-        go("changeDeviceOri")
-    } else {
-        go("menu");
-    }
-});
+      };
+
+      k.onKeyPress("space", performJump);
+      k.onKeyPress("up", performJump);
+
+      k.onKeyDown("left", () => {
+        if (player.pos.x > 0 && !gameState.isGameOver) {
+          player.move(-CONFIG.PLAYER_SPEED, 0);
+          gameState.isWalking = true;
+        }
+      });
+
+      k.onKeyDown("right", () => {
+        if (player.pos.x < k.width() && !gameState.isGameOver) {
+          player.move(CONFIG.PLAYER_SPEED, 0);
+          gameState.isWalking = true;
+        }
+      });
+
+      k.onKeyRelease(["left", "right"], () => {
+        gameState.isWalking = false;
+      });
+    };
+
+    const handlePlayerAnimation = (k, player) => {
+      if (gameState.isJumping) {
+        player.angle += 10;
+        gameState.rotation += 10;
+        if (gameState.rotation >= 360) {
+          player.angle = 0;
+          gameState.isJumping = false;
+        }
+      }
+
+      if ((gameState.isWalking || !player.isGrounded()) && k.time() % 0.24 < 0.12) {
+        const newSprite = gameState.playerSprite === 0 ? "capybara2" : "capybara";
+        player.use(k.sprite(newSprite));
+        gameState.playerSprite = 1 - gameState.playerSprite;
+      } else if (!gameState.isWalking && player.isGrounded()) {
+        player.use(k.sprite("capybara"));
+        gameState.playerSprite = 0;
+      }
+    };
+
+    const handleControllerInput = (k, player) => {
+      const gamepads = navigator.getGamepads();
+      const gamepad = gamepads[0];
+      
+      if (!gamepad) return;
+
+      if (gamepad.buttons[0]?.pressed) {
+        if (player.isGrounded() && !gameState.isGameOver) {
+          k.play("jump", { volume: 0.6 });
+          player.jump(CONFIG.JUMP_STRENGTH);
+          gameState.isJumping = true;
+        }
+      }
+
+      const leftStick = gamepad.axes[0];
+      if (Math.abs(leftStick) > 0.1) {
+        const newX = player.pos.x + leftStick * CONFIG.PLAYER_SPEED * k.dt();
+        if (newX >= 0 && newX <= k.width()) {
+          player.move(leftStick * CONFIG.PLAYER_SPEED, 0);
+          gameState.isWalking = true;
+        }
+      } else {
+        gameState.isWalking = false;
+      }
+    };
+
+    const spawnHazards = (k, player) => {
+      const spawn = () => {
+        if (gameState.isGameOver) return;
+
+        const hazardNum = Math.floor(Math.random() * 4) + 1;
+        const hazard = k.add([
+          k.sprite(`hazard${hazardNum}`),
+          k.area(),
+          k.pos(k.width(), k.height() - CONFIG.FLOOR_HEIGHT),
+          k.move(k.LEFT, CONFIG.HAZARD_SPEED),
+          k.anchor("botleft"),
+          "hazard"
+        ]);
+
+        k.wait(Math.random() * (CONFIG.SPAWN_MAX - CONFIG.SPAWN_MIN) + CONFIG.SPAWN_MIN, spawn);
+      };
+
+      player.onCollide("hazard", () => {
+        if (!gameState.isGameOver) {
+          gameState.isGameOver = true;
+          k.play("gameOver", { volume: 0.3 });
+          k.wait(0.1, () => k.go("gameover"));
+        }
+      });
+
+      spawn();
+    };
+
+    const updateHighScore = () => {
+      if (gameState.score > gameState.highScore) {
+        gameState.highScore = gameState.score;
+        sessionStorage.setItem('highScore', gameState.highScore.toString());
+      }
+    };
+
+    initGame();
+
+    return () => {
+      if (kaboomInstance) {
+        kaboomInstance.quit();
+      }
+    };
+  }, []);
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden' }}>
+      {isLoading && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          fontSize: '24px',
+          fontWeight: 'bold',
+          color: '#333'
+        }}>
+          Loading Hopibara...
+        </div>
+      )}
+      <canvas ref={canvasRef} style={{ display: 'block' }} />
+    </div>
+  );
+};
+
+export default HopibaraGame;
